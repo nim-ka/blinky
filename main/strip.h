@@ -17,4 +17,7 @@ enum StripMode {
 extern enum StripMode gStripMode;
 extern uint32_t gStripData[STRIP_LED_COUNT][3];
 
-extern void strip_task(void *pvParameters);
+extern void strip_init(void);
+extern void strip_start(void);
+extern void strip_suspend(void);
+extern void strip_resume(void);

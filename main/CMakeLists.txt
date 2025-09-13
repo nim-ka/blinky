@@ -1,7 +1,5 @@
-set(COMPONENT_REQUIRES )
-set(COMPONENT_PRIV_REQUIRES "esp_wifi" "nvs_flash")
-
-set(COMPONENT_SRCS "main.c" "server.c" "strip.c" "wifi.c")
-set(COMPONENT_ADD_INCLUDEDIRS "")
-
-register_component()
+idf_component_register(
+	SRCS "bytecode.c" "main.c" "server.c" "strip.c" "wifi.c"
+	INCLUDE_DIRS "."
+	PRIV_REQUIRES "esp_http_server" "esp_wifi" "nvs_flash"
+	EMBED_FILES "files/favicon.ico" "files/index.html")
