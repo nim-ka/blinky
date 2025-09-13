@@ -1,13 +1,18 @@
 menu "WiFi settings"
 
-    orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
+	orsource "$IDF_PATH/examples/common_components/env_caps/$IDF_TARGET/Kconfig.env_caps"
 
-    config WIFI_SSID
-        string "WiFi SSID"
-        default "ssid"
+	config WIFI_SSID
+		string "WiFi SSID"
+		default "ssid"
 
-    config WIFI_PASS
-        string "WiFi Password"
-        default "hunter2"
+	config WIFI_PASS
+		string "WiFi Password"
+		default "hunter2"
+
+	config WIFI_CHANNEL
+		int "WiFi Channel"
+		range 1 13
+		default 1
 
 endmenu

@@ -4,12 +4,13 @@
 
 #include "freertos/FreeRTOS.h"
 
-#include "sdkconfig.h"
-
 #include "strip.h"
+#include "wifi.h"
 #include "server.h"
 
 void server_task(void *pvParameters) {
+	wifi_init();
+
 	uint32_t time = 0;
 
 	while (1) {
