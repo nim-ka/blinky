@@ -4,6 +4,8 @@
 
 #include "freertos/FreeRTOS.h"
 
+#include "sdkconfig.h"
+
 #include "strip.h"
 #include "server.h"
 
