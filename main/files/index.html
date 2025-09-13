@@ -1,1 +1,173 @@
-hiii
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<title> Blinky </title>
+
+		<meta charset="utf-8" />
+
+		<script>
+			const ops = {};
+
+			function crc(bytecode) {
+				let crc = 0;
+
+				for (let i = 1; i < bytecode.length; i++) {
+					crc ^= bytecode[i];
+
+					for (let j = 0; j < 8; j++) {
+						if (crc & 0x80) {
+							crc <<= 1;
+							crc ^= 0x31;
+						} else {
+							crc <<= 1;
+						}
+					}
+				}
+
+				return crc;
+			}
+
+			function assemble(str) {
+				const bytecode = [0x00];
+				const labels = {};
+
+				const labelRegex = /[A-Za-z_][A-Za-z0-9_]*/;
+
+				for (let line of str.split("\n")) {
+					line = line.trim();
+
+					if (line == "" || line.startsWith("#")) {
+						continue;
+					}
+
+					if (line.endsWith(":")) {
+						const label = line.slice(0, line.length - 1);
+
+						if (!labelRegex.test(label)) {
+							throw `Invalid label "${label}"`;
+						}
+
+						if (label in labels) {
+							throw `Duplicate label "${label}"`;
+						}
+
+						labels[label] = bytecode.length;
+						continue;
+					}
+
+					const args = line.split(/\s+/);
+					const op = args.shift();
+
+					if (!(op in ops)) {
+						throw `Unknown op "${op}"`;
+					}
+
+					bytecode.push(ops[op]);
+
+					for (const arg of args) {
+						if (arg.startsWith("r")) {
+							bytecode.push(+arg.slice(1));
+						} else if (Number.isInteger(+arg)) {
+							const imm = +arg;
+							bytecode.push(
+								(imm >> 24) & 0xff,
+								(imm >> 16) & 0xff,
+								(imm >> 8) & 0xff,
+								imm & 0xff);
+						} else if (labelRegex.test(arg)) {
+							bytecode.push(
+								0,
+								0,
+								0,
+								arg);
+						} else {
+							throw `Invalid argument "${arg}"`;
+						}
+					}
+				}
+
+				for (let i = 0; i < 8; i++) {
+					bytecode.push(0xff);
+				}
+
+				for (let i = 0; i < bytecode.length; i++) {
+					if (typeof bytecode[i] == "string") {
+						if (!(bytecode[i] in labels)) {
+							throw `Couldn't find label "${bytecode[i]}"`;
+						}
+
+						const pos = labels[bytecode[i]];
+						bytecode[i - 3] = (pos >> 24) & 0xff;
+						bytecode[i - 2] = (pos >> 16) & 0xff;
+						bytecode[i - 1] = (pos >> 8) & 0xff;
+						bytecode[i] = pos & 0xff;
+					}
+				}
+
+				bytecode[0] = crc(bytecode);
+
+				return new Uint8Array(bytecode);
+			}
+		</script>
+	</head>
+	<body>
+		<div id="loading">
+			Loading...
+		</div>
+		<div id="main" style="display: none">
+			<textarea id="bytecode" rows="40" cols="80" spellcheck="false"></textarea>
+			<br />
+			<button id="submit"> Upload </button>
+			<span id="response"></span>
+		</div>
+
+		<script>
+			const loadingEl = document.getElementById("loading");
+			const mainEl = document.getElementById("main");
+			const bytecodeEl = document.getElementById("bytecode");
+			const submitEl = document.getElementById("submit");
+			const responseEl = document.getElementById("response");
+
+			fetch("/ops.h").then((res) => {
+				return res.text();
+			}).then((str) => {
+				for (const line of str.split("\n")) {
+					if (line == "" || line.startsWith("OP_NONE")) {
+						continue;
+					}
+
+					const [_, opcode, name] = line.match(/\((\w+), (\w+)\)/);
+					ops[name] = +opcode;
+				}
+
+				loadingEl.style.display = "none";
+				mainEl.style.display = "block";
+			});
+
+
+			submitEl.addEventListener("click", (evt) => {
+				responseEl.innerText = "";
+
+				let bytecode;
+
+				try {
+					bytecode = assemble(bytecodeEl.value);
+				} catch (err) {
+					responseEl.style.color = "red";
+					responseEl.innerText = err;
+					return;
+				}
+
+				fetch("/bytecode.bin", {
+					method: "PUT",
+					body: bytecode
+				}).then((res) => {
+					return res.text();
+				}).then((text) => {
+					responseEl.style.color = "black";
+					responseEl.innerText = text;
+				});
+			});
+		</script>
+	</body>
+</html>

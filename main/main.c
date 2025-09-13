@@ -9,30 +9,19 @@
 #include "strip.h"
 
 void app_main(void) {
-	bytecode_init();
-
 	strip_init();
 	strip_start();
+
+	bc_init();
+	bc_start();
 
 	server_init();
 	server_start();
 
+/*
 	uint32_t time = 0;
 
 	while (1) {
-
-/*
-
-		gStripMode = STRIP_MODE_HSV;
-
-		for (size_t i = 0; i < STRIP_LED_COUNT; i++) {
-			gStripData[i][0] = time + (STRIP_LED_COUNT - i) * 10;
-			gStripData[i][1] = 255;
-			gStripData[i][2] = 255;
-		}
-
-/*/
-
 		gStripMode = STRIP_MODE_RGB;
 
 		for (size_t i = 0; i < STRIP_LED_COUNT; i++) {
@@ -60,9 +49,8 @@ void app_main(void) {
 			}
 		}
 
-//*/
-
 		time++;
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}
+//*/
 }

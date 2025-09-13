@@ -13,7 +13,7 @@
 	extern const uint8_t filename ## _end[] asm("_binary_" #filename "_end"); \
 	httpd_resp_send(req, (const char *) filename ## _start, (size_t) (filename ## _end - filename ## _start));
 
-static uint8_t sNewBytecode[BYTECODE_MAX_LEN];
+static uint8_t sNewBytecode[BC_MAX_LEN];
 
 static esp_err_t server_favicon_handler(httpd_req_t *req) {
 	httpd_resp_set_type(req, "image/x-icon");
@@ -31,6 +31,14 @@ static esp_err_t server_index_handler(httpd_req_t *req) {
 	return ESP_OK;
 }
 
+static esp_err_t server_ops_handler(httpd_req_t *req) {
+	httpd_resp_set_type(req, "text/plain");
+	httpd_resp_set_status(req, "200 OK");
+
+	SEND_FILE(ops_h);
+	return ESP_OK;
+}
+
 static esp_err_t server_bytecode_get_handler(httpd_req_t *req) {
 	httpd_resp_set_type(req, "application/octet-stream");
 	httpd_resp_set_status(req, "200 OK");
@@ -45,7 +53,7 @@ static esp_err_t server_bytecode_put_handler(httpd_req_t *req) {
 	size_t len = req->content_len;
 	size_t cur = 0;
 
-	if (len > BYTECODE_MAX_LEN) {
+	if (len > BC_MAX_LEN) {
 		httpd_resp_send_err(req, HTTPD_413_CONTENT_TOO_LARGE, "Exceeded max bytecode length");
 		return ESP_FAIL;
 	}
@@ -56,7 +64,7 @@ static esp_err_t server_bytecode_put_handler(httpd_req_t *req) {
 		cur += httpd_req_recv(req, (char *) &sNewBytecode[cur], len - cur);
 	}
 
-	if (!bytecode_try_update(sNewBytecode)) {
+	if (!bc_try_update(sNewBytecode)) {
 		httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bytecode checksum verification fail");
 		return ESP_FAIL;
 	}
@@ -88,6 +96,11 @@ void server_start(void) {
 			.uri = "/",
 			.method = HTTP_GET,
 			.handler = server_index_handler
+		},
+		{
+			.uri = "/ops.h",
+			.method = HTTP_GET,
+			.handler = server_ops_handler
 		},
 		{
 			.uri = "/bytecode.bin",
