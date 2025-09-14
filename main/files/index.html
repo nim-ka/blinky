@@ -8,18 +8,40 @@
 		<script>
 			const ops = {};
 
-			function crc(bytecode) {
+			function getLen(bytecode) {
+				let len = 8;
+
+				while (len < bytecode.length) {
+					if (
+						bytecode[len - 8] == 0xFF &&
+						bytecode[len - 7] == 0xFF &&
+						bytecode[len - 6] == 0xFF &&
+						bytecode[len - 5] == 0xFF &&
+						bytecode[len - 4] == 0xFF &&
+						bytecode[len - 3] == 0xFF &&
+						bytecode[len - 2] == 0xFF &&
+						bytecode[len - 1] == 0xFF) {
+						break;
+					}
+
+					len++;
+				}
+
+				return len;
+			}
+
+			function getCrc(bytecode, len) {
 				let crc = 0;
 
-				for (let i = 1; i < bytecode.length; i++) {
+				for (let i = 1; i < len; i++) {
 					crc ^= bytecode[i];
 
 					for (let j = 0; j < 8; j++) {
 						if (crc & 0x80) {
-							crc <<= 1;
+							crc = (crc << 1) & 0xff;
 							crc ^= 0x31;
 						} else {
-							crc <<= 1;
+							crc = (crc << 1) & 0xff;
 						}
 					}
 				}
@@ -31,12 +53,12 @@
 				const bytecode = [0x00];
 				const labels = {};
 
-				const labelRegex = /[A-Za-z_][A-Za-z0-9_]*/;
+				const labelRegex = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 				for (let line of str.split("\n")) {
-					line = line.trim();
+					line = line.split("#")[0].trim();
 
-					if (line == "" || line.startsWith("#")) {
+					if (line == "") {
 						continue;
 					}
 
@@ -104,7 +126,12 @@
 					}
 				}
 
-				bytecode[0] = crc(bytecode);
+				const len = getLen(bytecode);
+				if (len > 0x4000) {
+					throw `Bytecode too large (${len} bytes, max ${0x4000})`;
+				}
+
+				bytecode[0] = getCrc(bytecode, len);
 
 				return new Uint8Array(bytecode);
 			}

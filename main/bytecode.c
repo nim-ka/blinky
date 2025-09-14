@@ -95,6 +95,11 @@ static void bc_op_getpos(void) {
 	sRegisters[reg] = sCurLed;
 }
 
+static void bc_op_getposend(void) {
+	uint8_t reg = bc_next_u8();
+	sRegisters[reg] = STRIP_LED_COUNT - sCurLed;
+}
+
 static void bc_op_getticks(void) {
 	uint8_t reg = bc_next_u8();
 	sRegisters[reg] = sTicks;
@@ -405,7 +410,7 @@ bool bc_try_update(uint8_t *bytecode) {
 
 	uint8_t crc = bc_crc(bytecode, len);
 	if (bytecode[0] != crc) {
-//		return false;
+		return false;
 	}
 
 	sTicks = 0;
