@@ -88,14 +88,18 @@
 
 					for (const arg of args) {
 						if (arg.startsWith("r")) {
-							bytecode.push(+arg.slice(1));
-						} else if (Number.isInteger(+arg)) {
-							const imm = +arg;
+							const reg = +arg.slice(1);
+							if (Number.isInteger(reg) && reg >= 0 && reg <= 255) {
+								bytecode.push(reg);
+							}
+						} else if (!isNaN(+arg)) {
+							const imm = new Float32Array([+arg]);
+							const view = new DataView(imm.buffer);
 							bytecode.push(
-								(imm >> 24) & 0xff,
-								(imm >> 16) & 0xff,
-								(imm >> 8) & 0xff,
-								imm & 0xff);
+								view.getUint8(3),
+								view.getUint8(2),
+								view.getUint8(1),
+								view.getUint8(0));
 						} else if (labelRegex.test(arg)) {
 							bytecode.push(
 								0,

@@ -64,10 +64,12 @@ static esp_err_t server_bytecode_put_handler(httpd_req_t *req) {
 		cur += httpd_req_recv(req, (char *) &sNewBytecode[cur], len - cur);
 	}
 
-	if (!bc_try_update(sNewBytecode)) {
+	if (!bc_update(sNewBytecode, true)) {
 		httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "Bytecode checksum verification fail");
 		return ESP_FAIL;
 	}
+
+	bc_interrupt();
 
 	httpd_resp_sendstr(req, "Updated bytecode successfully");
 	return ESP_OK;
