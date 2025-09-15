@@ -1,6 +1,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 #include "freertos/FreeRTOS.h"
 
@@ -47,7 +48,14 @@ static void strip_task(void *pvParameters) {
 	}
 }
 
+void strip_reset(void) {
+	gStripMode = STRIP_MODE_RGB;
+	memset(gStripData, 0, sizeof(gStripData));
+}
+
 void strip_init(void) {
+	strip_reset();
+
 	led_strip_config_t stripCfg = {
 		.strip_gpio_num = STRIP_PIN,
 		.led_model = STRIP_LED_MODEL,

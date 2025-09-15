@@ -49,8 +49,8 @@
 				return crc;
 			}
 
-			function assemble(str) {
-				const bytecode = [0x00];
+			function assemble(mode, str) {
+				const bytecode = [0x00, mode];
 				const labels = {};
 
 				const labelRegex = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -146,6 +146,11 @@
 			Loading...
 		</div>
 		<div id="main" style="display: none">
+			<select id="mode">
+				<option value="0" selected> execute on every LED (use getpos[end] to get position) </option>
+				<option value="1"> execute once per tick (use pos[end][i/r] to set position) </option>
+			</select>
+			<br />
 			<textarea id="bytecode" rows="40" cols="80" spellcheck="false"></textarea>
 			<br />
 			<button id="submit"> Upload </button>
@@ -155,6 +160,7 @@
 		<script>
 			const loadingEl = document.getElementById("loading");
 			const mainEl = document.getElementById("main");
+			const modeEl = document.getElementById("mode");
 			const bytecodeEl = document.getElementById("bytecode");
 			const submitEl = document.getElementById("submit");
 			const responseEl = document.getElementById("response");
@@ -182,7 +188,7 @@
 				let bytecode;
 
 				try {
-					bytecode = assemble(bytecodeEl.value);
+					bytecode = assemble(+modeEl.value, bytecodeEl.value);
 				} catch (err) {
 					responseEl.style.color = "red";
 					responseEl.innerText = err;

@@ -22,29 +22,31 @@
 uint8_t gBytecode[BC_MAX_LEN];
 size_t gBytecodeLen;
 
-static uint8_t sInitBytecode[75] = {
+static uint8_t sInitBytecode[76] = {
 	/* checksum */ 0x00,
-	/* 01: hsv             */ 0x02,
-	/* 02: periodi 100.0f  */ 0x03, 0x42, 0xC8, 0x00, 0x00,
-	/* 07: vali 150.0f     */ 0x07, 0x43, 0x16, 0x00, 0x00,
-	/* 0C: getposend r0    */ 0x0C, 0x00,
-	/* 0E: getticks r1     */ 0x0D, 0x01,
-	/* 10: addr r0 r0 r1   */ 0x13, 0x00, 0x00, 0x01,
-	/* 14: divi r0 r0 3.0f */ 0x17, 0x00, 0x00, 0x40, 0x40, 0x00, 0x00,
-	/* 1B: modi r0 r0 4.0f */ 0x19, 0x00, 0x00, 0x40, 0x80, 0x00, 0x00,
-	/* 22: cz r0           */ 0x41, 0x00,
-	/* 24: haltt           */ 0x33,
-	/* 25: huei 348.0f     */ 0x05, 0x43, 0xAE, 0x00, 0x00,
-	/* 2A: sati 79.0f      */ 0x06, 0x42, 0x9E, 0x00, 0x00,
-	/* 2F: modi r1 r0 2.0f */ 0x19, 0x01, 0x00, 0x40, 0x00, 0x00, 0x00,
-	/* 36: cnz r1          */ 0x42, 0x01,
-	/* 38: haltt           */ 0x33,
-	/* 39: huei 197.0f     */ 0x05, 0x43, 0x45, 0x00, 0x00,
-	/* 3E: sati 162.0f     */ 0x06, 0x43, 0x22, 0x00, 0x00,
+	/* mode */ BC_MODE_PER_LED,
+	/* 02: hsv             */ 0x02,
+	/* 03: periodi 100.0f  */ 0x03, 0x42, 0xC8, 0x00, 0x00,
+	/* 08: vali 150.0f     */ 0x07, 0x43, 0x16, 0x00, 0x00,
+	/* 0D: getposend r0    */ 0x0C, 0x00,
+	/* 0F: getticks r1     */ 0x0D, 0x01,
+	/* 11: addr r0 r0 r1   */ 0x13, 0x00, 0x00, 0x01,
+	/* 15: divi r0 r0 3.0f */ 0x17, 0x00, 0x00, 0x40, 0x40, 0x00, 0x00,
+	/* 1C: modi r0 r0 4.0f */ 0x19, 0x00, 0x00, 0x40, 0x80, 0x00, 0x00,
+	/* 23: cz r0           */ 0x41, 0x00,
+	/* 25: haltt           */ 0x33,
+	/* 26: huei 348.0f     */ 0x05, 0x43, 0xAE, 0x00, 0x00,
+	/* 2B: sati 79.0f      */ 0x06, 0x42, 0x9E, 0x00, 0x00,
+	/* 30: modi r1 r0 2.0f */ 0x19, 0x01, 0x00, 0x40, 0x00, 0x00, 0x00,
+	/* 37: cnz r1          */ 0x42, 0x01,
+	/* 39: haltt           */ 0x33,
+	/* 3A: huei 197.0f     */ 0x05, 0x43, 0x45, 0x00, 0x00,
+	/* 3F: sati 162.0f     */ 0x06, 0x43, 0x22, 0x00, 0x00,
 	/* end */ 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
 };
 
 static struct ErrorBytecode sErrorBytecode = {
+	.mode = BC_MODE_PER_LED,
 	.pattern = {
 		/* 01: getticks r0     */ 0x0D, 0x00,
 		/* 03: modi r0 r0 2.0f */ 0x19, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00,
@@ -76,8 +78,8 @@ static uint32_t sRng;
 static size_t sPc;
 
 static inline float bc_read_mem(size_t idx) {
-	if (idx < 0 || idx >= BC_MEMORY_SIZE) {
-		ERROR("out of bounds memory read");
+	if (idx >= BC_MEMORY_SIZE) {
+		ERROR("out of bounds memory read (addr %03x)", idx);
 		return 0.0f;
 	}
 
@@ -85,12 +87,21 @@ static inline float bc_read_mem(size_t idx) {
 }
 
 static inline void bc_write_mem(size_t idx, float val) {
-	if (idx < 0 || idx >= BC_MEMORY_SIZE) {
-		ERROR("out of bounds memory write");
-		return 0.0f;
+	if (idx >= BC_MEMORY_SIZE) {
+		ERROR("out of bounds memory write (addr %04x)", idx);
+		return;
 	}
 
 	sMemory[idx] = val;
+}
+
+static inline void bc_set_cur_led(size_t pos) {
+	if (pos >= STRIP_LED_COUNT) {
+		ERROR("tried to set led outside the strip (position %d)", pos);
+		return;
+	}
+
+	sCurLed = pos;
 }
 
 static inline uint8_t bc_next_u8(void) {
@@ -564,7 +575,29 @@ static void bc_op_storei(void) {
 static void bc_op_storer(void) {
 	uint8_t reg0 = bc_next_u8();
 	uint8_t reg1 = bc_next_u8();
-	bc_write_mem((size_t) sRegisters[reg1]], sRegisters[reg0]);
+	bc_write_mem((size_t) sRegisters[reg1], sRegisters[reg0]);
+}
+
+/* Configuration instructions 2 */
+
+static void bc_op_posi(void) {
+	float imm = bc_next_f32();
+	bc_set_cur_led((size_t) imm);
+}
+
+static void bc_op_posr(void) {
+	uint8_t reg = bc_next_u8();
+	bc_set_cur_led((size_t) sRegisters[reg]);
+}
+
+static void bc_op_posendi(void) {
+	float imm = bc_next_f32();
+	bc_set_cur_led(STRIP_LED_COUNT - (size_t) imm);
+}
+
+static void bc_op_posendr(void) {
+	uint8_t reg = bc_next_u8();
+	bc_set_cur_led(STRIP_LED_COUNT - (size_t) sRegisters[reg]);
 }
 
 /* Halt instruction */
@@ -638,58 +671,63 @@ static size_t bc_len(uint8_t *bytecode) {
 }
 
 static void bc_execute(void) {
-	gStripMode = STRIP_MODE_RGB;
+	if (sError) {
+		return;
+	}
 
-	for (sCurLed = 0; sCurLed < STRIP_LED_COUNT; sCurLed++) {
-		sInstrs = 0;
-		sError = false;
-		sRunning = true;
+	sInstrs = 0;
+	sRunning = true;
 
-		memset(sRegisters, 0, sizeof(sRegisters));
-		sPc = 1;
+	memset(sRegisters, 0, sizeof(sRegisters));
+	sPc = 2;
 
-		gStripData[sCurLed][0] = 0;
-		gStripData[sCurLed][1] = 0;
-		gStripData[sCurLed][2] = 0;
-
-		while (sRunning) {
-			if (sPc >= gBytecodeLen) {
-				sRunning = false;
-				break;
-			}
-
-			uint8_t opcode = gBytecode[sPc];
-			sPc++;
-
-			if (sOps[opcode] == NULL) {
-				ERROR("invalid opcode %02x", opcode);
-				break;
-			}
-
-			sOps[opcode]();
-			sInstrs++;
-
-			if (sInstrs > BC_MAX_INSTRS) {
-				ERROR("exceeded instruction cap");
-				break;
-			}
-
-			bc_update_rng();
-		}
-
-		if (sError) {
+	while (sRunning) {
+		if (sPc >= gBytecodeLen) {
+			sRunning = false;
 			break;
 		}
+
+		uint8_t opcode = gBytecode[sPc];
+		sPc++;
+
+		if (sOps[opcode] == NULL) {
+			ERROR("invalid opcode %02x", opcode);
+			break;
+		}
+
+		sOps[opcode]();
+		sInstrs++;
+
+		if (sInstrs > BC_MAX_INSTRS) {
+			ERROR("exceeded instruction cap");
+			break;
+		}
+
+		bc_update_rng();
 	}
 }
 
 static void bc_task(void *pvParameters) {
 	while (true) {
 		strip_suspend();
-		bc_execute();
+		strip_reset();
+
+		switch (gBytecode[1]) {
+			case BC_MODE_PER_LED:
+				for (sCurLed = 0; sCurLed < STRIP_LED_COUNT; sCurLed++) {
+					bc_execute();
+				}
+				break;
+
+			case BC_MODE_PER_TICK:
+				bc_execute();
+				break;
+		}
+
 		strip_resume();
 
 		if (sError) {
+			sError = false;
 			continue;
 		}
 
