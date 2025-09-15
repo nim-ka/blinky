@@ -75,6 +75,24 @@ static size_t sCurLed;
 static uint32_t sRng;
 static size_t sPc;
 
+static inline float bc_read_mem(size_t idx) {
+	if (idx < 0 || idx >= BC_MEMORY_SIZE) {
+		ERROR("out of bounds memory read");
+		return 0.0f;
+	}
+
+	return sMemory[idx];
+}
+
+static inline void bc_write_mem(size_t idx, float val) {
+	if (idx < 0 || idx >= BC_MEMORY_SIZE) {
+		ERROR("out of bounds memory write");
+		return 0.0f;
+	}
+
+	sMemory[idx] = val;
+}
+
 static inline uint8_t bc_next_u8(void) {
 	return gBytecode[sPc++];
 }
@@ -528,25 +546,25 @@ static void bc_op_cger(void) {
 static void bc_op_loadi(void) {
 	uint8_t reg = bc_next_u8();
 	float imm = bc_next_f32();
-	sRegisters[reg] = sMemory[(size_t) imm];
+	sRegisters[reg] = bc_read_mem((size_t) imm);
 }
 
 static void bc_op_loadr(void) {
 	uint8_t reg0 = bc_next_u8();
 	uint8_t reg1 = bc_next_u8();
-	sRegisters[reg0] = sMemory[(size_t) sRegisters[reg1]];
+	sRegisters[reg0] = bc_read_mem((size_t) sRegisters[reg1]);
 }
 
 static void bc_op_storei(void) {
 	uint8_t reg = bc_next_u8();
 	float imm = bc_next_f32();
-	sMemory[(size_t) imm] = sRegisters[reg];
+	bc_write_mem((size_t) imm, sRegisters[reg]);
 }
 
 static void bc_op_storer(void) {
 	uint8_t reg0 = bc_next_u8();
 	uint8_t reg1 = bc_next_u8();
-	sMemory[(size_t) sRegisters[reg1]] = sRegisters[reg0];
+	bc_write_mem((size_t) sRegisters[reg1]], sRegisters[reg0]);
 }
 
 /* Halt instruction */
